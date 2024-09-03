@@ -14,6 +14,7 @@ uniform mat4 projectionMatrix;
 uniform mat4 viewMatrix;
 uniform ivec3 playerPositionInteger;
 uniform vec3 playerPositionFraction;
+uniform float worldCurvature = 0.0001;
 
 struct FaceData {
 	int encodedPositionAndLightIndex;
@@ -137,6 +138,9 @@ void main() {
 	position += modelPosition;
 
 	direction = position;
+
+	position.z -= (position.x * position.x + position.y * position.y) * worldCurvature;
+	position.z = max(position.z, -10000);
 
 	vec4 mvPos = viewMatrix*vec4(position, 1);
 	gl_Position = projectionMatrix*mvPos;

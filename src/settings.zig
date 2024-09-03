@@ -44,6 +44,8 @@ pub var musicVolume: f32 = 1;
 
 pub var leavesQuality: u16 = 2;
 
+pub var worldCurvature: f32 = 0.1;
+
 pub var viewBobStrength: f32 = 0.5;
 
 

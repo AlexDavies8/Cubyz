@@ -642,8 +642,10 @@ pub noinline fn updateAndGetRenderChunks(conn: *network.Connection, playerPos: V
 			if(neighbor.isPositive() and component + @as(f64, @floatFromInt(chunk.chunkSize*mesh.pos.voxelSize)) <= 0) continue;
 			if(!neighbor.isPositive() and component >= 0) continue;
 			if(@reduce(.Or, @min(mesh.chunkBorders[neighbor.toInt()].min, mesh.chunkBorders[neighbor.toInt()].max) != mesh.chunkBorders[neighbor.toInt()].min)) continue; // There was not a single block in the chunk. TODO: Find a better solution.
-			const minVec: Vec3f = @floatFromInt(mesh.chunkBorders[neighbor.toInt()].min*@as(Vec3i, @splat(mesh.pos.voxelSize)));
-			const maxVec: Vec3f = @floatFromInt(mesh.chunkBorders[neighbor.toInt()].max*@as(Vec3i, @splat(mesh.pos.voxelSize)));
+			var minVec: Vec3f = @floatFromInt(mesh.chunkBorders[neighbor.toInt()].min*@as(Vec3i, @splat(mesh.pos.voxelSize)));
+			var maxVec: Vec3f = @floatFromInt(mesh.chunkBorders[neighbor.toInt()].max*@as(Vec3i, @splat(mesh.pos.voxelSize)));
+			minVec[2] -= (std.math.pow(f32, minVec[0], 2) + std.math.pow(f32, minVec[1], 2)) * settings.worldCurvature * settings.worldCurvature * 0.002;
+			maxVec[2] -= (std.math.pow(f32, maxVec[0], 2) + std.math.pow(f32, maxVec[1], 2)) * settings.worldCurvature * settings.worldCurvature * 0.002;
 			var xyMin: Vec2f = .{10, 10};
 			var xyMax: Vec2f = .{-10, -10};
 			var numberOfNegatives: u8 = 0;

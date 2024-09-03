@@ -98,6 +98,15 @@ fn resolutionScaleCallback(newValue: u16) void {
 	main.Window.GLFWCallbacks.framebufferSize(null, main.Window.width, main.Window.height);
 }
 
+fn worldCurvatureCallback(newValue: f32) void {
+	settings.worldCurvature = newValue;
+	settings.save();
+}
+
+fn worldCurvatureFormatter(allocator: main.utils.NeverFailingAllocator, value: f32) []const u8 {
+	return std.fmt.allocPrint(allocator.allocator, "#ffffffWorld Curvature: {d:.2}", .{value}) catch unreachable;
+}
+
 fn viewBobbingCallback(newValue: f32) void {
 	settings.viewBobStrength = newValue;
 	settings.save();
@@ -117,6 +126,7 @@ pub fn onOpen() void {
 	list.add(CheckBox.init(.{0, 0}, 128, "Vertical Synchronization", settings.vsync, &vsyncCallback));
 	list.add(DiscreteSlider.init(.{0, 0}, 128, "#ffffffAnisotropic Filtering: ", "{}x", &anisotropy, switch(settings.anisotropicFiltering) {1 => 0, 2 => 1, 4 => 2, 8 => 3, 16 => 4, else => 2}, &anisotropicFilteringCallback));
 	list.add(DiscreteSlider.init(.{0, 0}, 128, "#ffffffResolution Scale: ", "{}%", &resolutions, @as(u16, @intFromFloat(@log2(settings.resolutionScale) + 2.0)), &resolutionScaleCallback));
+	list.add(ContinuousSlider.init(.{0, 0}, 128, 0.0, 1.0, settings.worldCurvature, &worldCurvatureCallback, &worldCurvatureFormatter));
 	list.add(ContinuousSlider.init(.{0, 0}, 128, 0.0, 1.0, settings.viewBobStrength, &viewBobbingCallback, &viewBobbingFormatter));
 	list.finish(.center);
 	window.rootComponent = list.toComponent();

@@ -31,6 +31,7 @@ const UniformStruct = struct {
 	viewMatrix: c_int,
 	playerPositionInteger: c_int,
 	playerPositionFraction: c_int,
+	worldCurvature: c_int,
 	screenSize: c_int,
 	ambientLight: c_int,
 	contrast: c_int,
@@ -149,6 +150,8 @@ fn bindCommonUniforms(locations: *UniformStruct, projMatrix: Mat4f, ambient: Vec
 
 	c.glUniform3i(locations.playerPositionInteger, @intFromFloat(@floor(playerPos[0])), @intFromFloat(@floor(playerPos[1])), @intFromFloat(@floor(playerPos[2])));
 	c.glUniform3f(locations.playerPositionFraction, @floatCast(@mod(playerPos[0], 1)), @floatCast(@mod(playerPos[1], 1)), @floatCast(@mod(playerPos[2], 1)));
+
+	c.glUniform1f(locations.worldCurvature, settings.worldCurvature * settings.worldCurvature * 0.002);
 }
 
 pub fn bindShaderAndUniforms(projMatrix: Mat4f, ambient: Vec3f, playerPos: Vec3d) void {

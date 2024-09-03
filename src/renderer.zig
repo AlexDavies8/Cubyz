@@ -67,6 +67,9 @@ pub fn init() void {
 	MenuBackGround.init() catch |err| {
 		std.log.err("Failed to initialize the Menu Background: {s}", .{@errorName(err)});
 	};
+	Skybox.init() catch |err| {
+		std.log.err("Failed to initialize the Skybox: {s}", .{@errorName(err)});
+	};
 	chunk_meshing.init();
 	mesh_storage.init();
 	reflectionCubeMap = graphics.CubeMapTexture.init();
@@ -81,6 +84,7 @@ pub fn deinit() void {
 	Bloom.deinit();
 	MeshSelection.deinit();
 	MenuBackGround.deinit();
+	Skybox.deinit();
 	mesh_storage.deinit();
 	chunk_meshing.deinit();
 	reflectionCubeMap.deinit();
@@ -132,7 +136,7 @@ pub fn render(playerPosition: Vec3d) void {
 		const skyColor = vec.xyz(world.clearColor);
 		game.fog.skyColor = skyColor;
 
-		renderWorld(world, ambient, skyColor, playerPosition);
+		renderWorld(world, ambient, playerPosition);
 		const startTime = std.time.milliTimestamp();
 		mesh_storage.updateMeshes(startTime + maximumMeshTime);
 	} else {
@@ -164,13 +168,21 @@ pub fn crosshairDirection(rotationMatrix: Mat4f, fovY: f32, width: u31, height: 
 	return adjusted;
 }
 
-pub fn renderWorld(world: *World, ambientLight: Vec3f, skyColor: Vec3f, playerPos: Vec3d) void { // MARK: renderWorld()
+pub fn renderWorld(world: *World, ambientLight: Vec3f, playerPos: Vec3d) void { // MARK: renderWorld()
 	worldFrameBuffer.bind();
 	c.glViewport(0, 0, lastWidth, lastHeight);
+
+	// Clear to black
 	gpu_performance_measuring.startQuery(.clear);
-	worldFrameBuffer.clear(Vec4f{skyColor[0], skyColor[1], skyColor[2], 1});
+	worldFrameBuffer.clear(Vec4f{0, 0, 0, 1});
 	gpu_performance_measuring.stopQuery();
+
 	game.camera.updateViewMatrix();
+
+	// Render Skybox
+	gpu_performance_measuring.startQuery(.skybox);
+	Skybox.render();
+	gpu_performance_measuring.stopQuery();
 
 	// Uses FrustumCulling on the chunks.
 	const frustum = Frustum.init(Vec3f{0, 0, 0}, game.camera.viewMatrix, lastFov, lastWidth, lastHeight);
@@ -579,6 +591,80 @@ pub const MenuBackGround = struct {
 			std.log.err("Cannot write file {s} due to {s}", .{fileName, @errorName(err)});
 		};
 		// TODO: Performance is terrible even with -O3. Consider using qoi instead.
+	}
+};
+
+pub const Skybox = struct {
+	var shader: Shader = undefined;
+	var uniforms: struct {
+		image: c_int,
+		viewMatrix: c_int,
+		projectionMatrix: c_int,
+		dayCycle: c_int,
+	} = undefined;
+
+	var vao: c_uint = undefined;
+	var vbos: [1]c_uint = undefined;
+	var texture: graphics.Texture = undefined;
+
+	var angle: f32 = 0;
+	var lastTime: i128 = undefined;
+
+	fn init() !void {
+		lastTime = std.time.nanoTimestamp();
+		shader = Shader.initAndGetUniforms("assets/cubyz/shaders/skybox/vertex.vs", "assets/cubyz/shaders/skybox/fragment.fs", "", &uniforms);
+		shader.bind();
+		c.glUniform1i(uniforms.image, 0);
+		// 4 sides of a simple cube with some panorama texture on it.
+		const rawData = [_]f32 {
+			-1, -1, 0,
+			-1, 1, 0,
+			1, -1, 0,
+			1, 1, 0,
+		};
+
+		c.glGenVertexArrays(1, &vao);
+		c.glBindVertexArray(vao);
+		c.glGenBuffers(1, &vbos);
+		c.glBindBuffer(c.GL_ARRAY_BUFFER, vbos[0]);
+		c.glBufferData(c.GL_ARRAY_BUFFER, rawData.len*@sizeOf(f32), &rawData, c.GL_STATIC_DRAW);
+		c.glVertexAttribPointer(0, 2, c.GL_FLOAT, c.GL_FALSE, 3*@sizeOf(f32), null);
+		c.glEnableVertexAttribArray(0);
+		
+		texture = graphics.Texture.initFromFile("assets/cubyz/skybox/gradient.png");
+	}
+
+	pub fn deinit() void {
+		shader.deinit();
+		c.glDeleteVertexArrays(1, &vao);
+		c.glDeleteBuffers(1, &vbos);
+	}
+
+	pub fn hasImage() bool {
+		return texture.textureID != 0;
+	}
+
+	pub fn render() void {
+		if(texture.textureID == 0) return;
+		c.glDisable(c.GL_CULL_FACE); // I'm not sure if my triangles are rotated correctly, and there are no triangles facing away from the player anyways.
+
+		shader.bind();
+
+		c.glUniformMatrix4fv(uniforms.viewMatrix, 1, c.GL_TRUE, @ptrCast(&game.camera.viewMatrix));
+		c.glUniformMatrix4fv(uniforms.projectionMatrix, 1, c.GL_TRUE, @ptrCast(&game.projectionMatrix));
+
+		var gameTime: i64 = 0;
+		if (game.world != null) {
+			gameTime = game.world.?.gameTime.load(.monotonic);
+		}
+
+		c.glUniform1f(uniforms.dayCycle, 1 - @as(f32, @floatFromInt(@abs(@mod(gameTime, game.World.dayCycle) -% game.World.dayCycle/2))) / game.World.dayCycle * 2);
+
+		texture.bindTo(0);
+
+		c.glBindVertexArray(vao);
+		
+		c.glDrawArrays(c.GL_TRIANGLE_STRIP, 0, 4);
 	}
 };
 

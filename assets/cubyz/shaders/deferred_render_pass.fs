@@ -55,7 +55,7 @@ void main() {
 	fragColor += texture(bloomColor, texCoords);
 	float densityAdjustment = sqrt(dot(tanXY*(texCoords*2 - 1), tanXY*(texCoords*2 - 1)) + 1);
 	float fogDistance = calculateFogDistance(texture(depthTexture, texCoords).r, fog.density*densityAdjustment);
-	fragColor.rgb = applyFrontfaceFog(fogDistance, fog.color, fragColor.rgb);
+	//fragColor.rgb = applyFrontfaceFog(fogDistance, fog.color, fragColor.rgb);
 	float maxColor = max(1.0, max(fragColor.r, max(fragColor.g, fragColor.b)));
 	fragColor.rgb = fragColor.rgb/maxColor;
 }
